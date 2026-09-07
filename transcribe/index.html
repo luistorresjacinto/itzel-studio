@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BubbyScribe</title>
+<meta name="description" content="Drop a voice memo, meeting recording or video and get the words — transcribed on your own device with Whisper. Nothing is uploaded.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="BubbyScribe">
+<meta name="theme-color" content="#f5f3ee">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<style>
+  :root{
+    --bg:#f5f3ee;
+    --surface:#ffffff;
+    --surface-2:#ecefe9;
+    --ink:#1f262a;
+    --ink-soft:#5f6b6e;
+    --ink-faint:#93a0a2;
+    --accent:#128a76;
+    --accent-deep:#0b6b5c;
+    --accent-soft:#d9ece7;
+    --pop:#f2a25c;
+    --pop-soft:#fbe8d5;
+    --line:#e4e4dc;
+    --danger:#c05b5b;
+    --shadow:0 6px 24px rgba(20,80,70,.10);
+    --radius:20px;
+  }
+  [data-theme="dark"]{
+    --bg:#11181a;
+    --surface:#1a2427;
+    --surface-2:#223034;
+    --ink:#eef4f2;
+    --ink-soft:#a7b8b6;
+    --ink-faint:#6f8283;
+    --accent:#3fc2a9;
+    --accent-deep:#6fdcc6;
+    --accent-soft:#1d3a36;
+    --pop:#f5b47c;
+    --pop-soft:#3a2e20;
+    --line:#2a383c;
+    --danger:#e08080;
+    --shadow:0 6px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:env(safe-area-inset-bottom);
+    transition:background .35s ease,color .35s ease;
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important;}}
+  .app{max-width:640px;margin:0 auto;min-height:100vh;}
+  header.top{
+    position:sticky;top:0;z-index:30;
+    background:color-mix(in srgb,var(--bg) 88%,transparent);
+    backdrop-filter:saturate(140%) blur(12px);
+    -webkit-backdrop-filter:saturate(140%) blur(12px);
+    padding:calc(env(safe-area-inset-top) + 14px) 20px 12px;
+    display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:19px;letter-spacing:.2px;}
+  .brand .dot{
+    width:28px;height:28px;border-radius:10px;
+    background:linear-gradient(140deg,var(--accent),var(--accent-deep));
+    display:flex;align-items:center;justify-content:center;font-size:14px;
+  }
+  .hdrbtns{display:flex;gap:8px;}
+  .iconbtn{
+    width:44px;height:44px;min-width:44px;border:none;border-radius:14px;background:var(--surface-2);
+    color:var(--ink);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .iconbtn:active{transform:scale(.94);}
+  main{padding:18px 20px 60px;}
+  .greet h1{font-size:26px;margin:6px 0 4px;font-weight:800;letter-spacing:-.2px;}
+  .greet .sub{color:var(--ink-soft);font-size:14.5px;margin:0 0 16px;}
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:18px;margin-bottom:16px;
+  }
+  h2{font-size:15px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-soft);margin:26px 0 10px;font-weight:700;}
+  /* ---- drop zone ---- */
+  .drop{
+    border:2px dashed color-mix(in srgb,var(--accent) 45%,var(--line));
+    background:linear-gradient(160deg,var(--surface),var(--accent-soft));
+    cursor:pointer;transition:border-color .2s,transform .2s,background .2s;
+  }
+  .drop:hover{border-color:var(--accent);}
+  .drop.over{border-color:var(--pop);background:var(--pop-soft);transform:scale(1.01);}
+  .dropin{display:flex;flex-direction:column;align-items:center;text-align:center;padding:14px 6px 8px;gap:6px;}
+  .bigicon{
+    width:76px;height:76px;border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:36px;
+    background:linear-gradient(150deg,var(--accent),var(--accent-deep));box-shadow:0 10px 26px rgba(18,138,118,.30);margin-bottom:6px;
+  }
+  .dropin b{font-size:18px;}
+  .dropin span{color:var(--ink-soft);font-size:13.5px;}
+  .dropin .btn{margin-top:10px;}
+  .enginepill{
+    margin-top:12px;font-size:12.5px;font-weight:600;color:var(--ink-soft);
+    background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:6px 14px;
+  }
+  /* ---- buttons ---- */
+  .btn{
+    border:none;border-radius:14px;padding:11px 16px;font-size:14.5px;font-weight:600;cursor:pointer;
+    background:var(--surface-2);color:var(--ink);display:inline-flex;align-items:center;gap:6px;min-height:44px;
+  }
+  .btn.primary{background:linear-gradient(150deg,var(--accent),var(--accent-deep));color:#fff;box-shadow:0 6px 16px rgba(18,138,118,.25);}
+  .btn.ghost{background:transparent;color:var(--ink-soft);}
+  .btn.sm{padding:8px 12px;font-size:13px;min-height:36px;border-radius:11px;}
+  .btn:active{transform:scale(.97);}
+  .btn:disabled{opacity:.5;cursor:default;transform:none;}
+  /* ---- offline card ---- */
+  .offline h3{margin:0 0 6px;font-size:16px;}
+  .offline p{margin:0 0 12px;color:var(--ink-soft);font-size:14px;}
+  .prog{height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin-top:12px;display:none;}
+  .prog b{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--pop));transition:width .25s;}
+  .prog.show{display:block;}
+  /* ---- job cards ---- */
+  .job{padding:0;overflow:hidden;}
+  .jhead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;cursor:pointer;}
+  .jmeta{min-width:0;flex:1;}
+  .jname{display:block;font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .jsub{display:block;color:var(--ink-soft);font-size:12.5px;margin-top:2px;}
+  .chip{
+    font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;white-space:nowrap;
+    background:var(--surface-2);color:var(--ink-soft);
+  }
+  .chip.busy{background:var(--pop-soft);color:#9a5a1e;}
+  [data-theme="dark"] .chip.busy{color:var(--pop);}
+  .chip.done{background:var(--accent-soft);color:var(--accent-deep);}
+  .chip.err{background:#f8e1e1;color:var(--danger);}
+  [data-theme="dark"] .chip.err{background:#3a2323;}
+  .jbody{padding:0 18px 16px;}
+  .job.collapsed .jbody{display:none;}
+  .jnote{font-size:13px;color:var(--ink-soft);margin-top:8px;min-height:18px;}
+  .jtext{
+    width:100%;min-height:120px;max-height:52vh;resize:vertical;margin-top:12px;
+    border:1px solid var(--line);border-radius:14px;padding:12px 14px;font:inherit;font-size:15px;line-height:1.55;
+    background:var(--bg);color:var(--ink);outline:none;
+  }
+  .jtext:focus{border-color:var(--accent);}
+  .jtext.live{color:var(--ink-soft);}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center;}
+  .actions .spacer{flex:1;}
+  .viewseg{display:inline-flex;background:var(--surface-2);border-radius:11px;padding:3px;margin-top:12px;}
+  .viewseg button{border:none;background:transparent;color:var(--ink-soft);padding:6px 12px;border-radius:9px;font-weight:600;font-size:12.5px;cursor:pointer;}
+  .viewseg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.08);}
+  .jerr{color:var(--danger);font-size:13.5px;margin-top:10px;}
+  .empty{color:var(--ink-faint);font-size:14px;text-align:center;padding:18px 0;}
+  footer{color:var(--ink-faint);font-size:12.5px;text-align:center;margin-top:36px;}
+  footer a{color:var(--accent);text-decoration:none;font-weight:600;}
+  /* ---- sheets ---- */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s;z-index:40;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);}
+  .overlay.show{opacity:1;pointer-events:auto;}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;max-width:640px;margin:0 auto;
+    background:var(--surface);border-radius:24px 24px 0 0;padding:10px 20px calc(env(safe-area-inset-bottom) + 24px);
+    transform:translateY(105%);visibility:hidden;
+    transition:transform .3s cubic-bezier(.2,.8,.2,1),visibility 0s .3s;max-height:88vh;overflow:auto;
+    box-shadow:0 -10px 40px rgba(0,0,0,.18);
+  }
+  .sheet.show{transform:none;visibility:visible;transition-delay:0s;}
+  .grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 14px;}
+  .sheet h3{margin:0 0 14px;font-size:18px;}
+  .setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);}
+  .setrow:last-of-type{border-bottom:none;}
+  .setrow.stack{flex-direction:column;align-items:stretch;gap:10px;}
+  .setrow.stack .seg{display:flex;}
+  .setrow.stack .seg button{flex:1;padding:8px 6px;}
+  .setrow .lab b{display:block;font-size:14.5px;}
+  .setrow .lab span{display:block;color:var(--ink-soft);font-size:12.5px;margin-top:2px;}
+  .seg{display:inline-flex;background:var(--surface-2);border-radius:12px;padding:3px;flex-shrink:0;}
+  .seg button{border:none;background:transparent;color:var(--ink-soft);padding:8px 11px;border-radius:9px;font-weight:600;font-size:12.5px;cursor:pointer;white-space:nowrap;}
+  .seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.08);}
+  select{
+    border:1px solid var(--line);border-radius:12px;padding:9px 12px;background:var(--surface-2);color:var(--ink);font:inherit;font-size:14px;
+  }
+  .switch{position:relative;width:50px;height:30px;flex-shrink:0;display:inline-block;}
+  .switch input{opacity:0;width:0;height:0;}
+  .switch .knob{position:absolute;inset:0;border-radius:999px;background:var(--line);transition:.2s;cursor:pointer;}
+  .switch .knob:before{content:"";position:absolute;width:24px;height:24px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+  .switch input:checked+.knob{background:var(--accent);}
+  .switch input:checked+.knob:before{transform:translateX(20px);}
+  .help p{margin:0 0 10px;font-size:14.5px;color:var(--ink);}
+  .help ol{padding-left:20px;margin:0 0 14px;font-size:14px;color:var(--ink);}
+  .help li{margin-bottom:6px;}
+  .help h4{margin:14px 0 6px;font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-soft);}
+  .help .note{color:var(--ink-soft);font-size:13px;}
+  .toast{
+    position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 24px);transform:translate(-50%,20px);
+    background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;font-size:14px;font-weight:600;
+    opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:90vw;text-align:center;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0);}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><span class="dot">📝</span> BubbyScribe</div>
+    <div class="hdrbtns">
+      <button class="iconbtn" id="helpBtn" title="How to send a file">?</button>
+      <button class="iconbtn" id="themeBtn" title="Light / dark">◐</button>
+      <button class="iconbtn" id="settingsBtn" title="Settings">⚙︎</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="greet">
+      <h1>Drop a file. Get the words.</h1>
+      <p class="sub">Voice memos, meetings, lectures, videos — transcribed right here on this device. Nothing is uploaded anywhere.</p>
+    </div>
+
+    <div class="card drop" id="drop">
+      <input type="file" id="fileInput" accept="audio/*,video/*,.m4a,.mp3,.wav,.mp4,.mov,.m4v,.webm,.ogg,.oga,.opus,.aac,.flac,.caf,.aiff,.wma" multiple hidden>
+      <div class="dropin">
+        <div class="bigicon">🎙️</div>
+        <b>Tap to choose a recording</b>
+        <span>or drag &amp; drop audio / video files here</span>
+        <button class="btn primary" id="pickBtn" type="button">Choose file</button>
+        <div class="enginepill" id="enginePill">🧠 Whisper · Sharp</div>
+      </div>
+    </div>
+
+    <div class="card offline" id="offlineCard">
+      <h3>🧠 First time? Download the brain</h3>
+      <p>The Whisper AI model downloads once (about <b id="modelSize">80 MB</b>, do it on Wi-Fi). After that every transcript runs 100% on this device — offline, private, no limits.</p>
+      <button class="btn primary" id="downloadBtn" type="button">Download the brain</button>
+      <div class="prog" id="prog"><b id="progBar"></b></div>
+    </div>
+
+    <h2 id="listTitle">Your transcripts</h2>
+    <div id="jobs"></div>
+
+    <footer>Made with ❤️ for the Bubbys · runs on your device, nothing leaves it<br>Need live dictation? <a href="../bubbyflow/">Open BubbyFlow</a></footer>
+  </main>
+</div>
+
+<div class="overlay" id="overlay"></div>
+
+<div class="sheet" id="settingsSheet">
+  <div class="grab"></div>
+  <h3>Settings</h3>
+  <div class="setrow stack">
+    <div class="lab"><b>Accuracy</b><span>Bigger brain = better words, slower &amp; larger download</span></div>
+    <div class="seg" id="modelSeg">
+      <button data-v="tiny">Quick · 40 MB</button>
+      <button data-v="base">Sharp · 80 MB</button>
+      <button data-v="small">Best · 250 MB</button>
+    </div>
+  </div>
+  <div class="setrow">
+    <div class="lab"><b>Language</b><span>What's being spoken in the recording</span></div>
+    <select id="langSel">
+      <option value="auto">Auto-detect</option>
+      <option value="en">English</option>
+      <option value="es">Español</option>
+      <option value="fr">Français</option>
+      <option value="pt">Português</option>
+      <option value="de">Deutsch</option>
+      <option value="it">Italiano</option>
+      <option value="ja">日本語</option>
+      <option value="ko">한국어</option>
+      <option value="zh">中文</option>
+    </select>
+  </div>
+  <div class="setrow">
+    <div class="lab"><b>Translate to English</b><span>Spanish in, English out</span></div>
+    <label class="switch"><input type="checkbox" id="translateTog"><span class="knob"></span></label>
+  </div>
+  <div class="setrow">
+    <div class="lab"><b>Clean it up</b><span>Drop the ums, fix capitals, add paragraphs</span></div>
+    <label class="switch"><input type="checkbox" id="cleanTog"><span class="knob"></span></label>
+  </div>
+  <div class="setrow">
+    <div class="lab"><b>Use graphics chip (GPU)</b><span>Experimental. Much faster on Macs &amp; PCs; downloads a separate copy of the brain. Falls back automatically if it fails.</span></div>
+    <label class="switch"><input type="checkbox" id="gpuTog"><span class="knob"></span></label>
+  </div>
+  <div class="setrow">
+    <div class="lab"><b>Clear history</b><span>Removes saved transcripts from this device</span></div>
+    <button class="btn sm" id="clearHistBtn" type="button">Clear</button>
+  </div>
+</div>
+
+<div class="sheet help" id="helpSheet">
+  <div class="grab"></div>
+  <h3>How to send a file here</h3>
+  <p>BubbyScribe never uploads anything. The recording stays on your device — Whisper runs in your browser.</p>
+  <h4>📱 iPhone / iPad</h4>
+  <ol>
+    <li>In <b>Voice Memos</b> (or any app) tap <b>Share</b> → <b>Save to Files</b>.</li>
+    <li>Open BubbyScribe, tap <b>Choose file</b> → <b>Browse</b> and pick it.</li>
+    <li>Tip: add BubbyScribe to your Home Screen (Share → <b>Add to Home Screen</b>) so it feels like a real app.</li>
+  </ol>
+  <h4>🤖 Android</h4>
+  <ol>
+    <li>Install BubbyScribe from Chrome's menu (<b>Add to Home screen</b>).</li>
+    <li>From any app, tap <b>Share</b> → <b>BubbyScribe</b>. It starts transcribing right away.</li>
+  </ol>
+  <h4>💻 Mac / PC</h4>
+  <ol>
+    <li>Drag the recording anywhere onto this page, or click <b>Choose file</b>.</li>
+    <li>Turn on <b>Use graphics chip</b> in Settings for big files — it's a lot faster.</li>
+  </ol>
+  <p class="note">Works with .m4a, .mp3, .wav, .mp4, .mov, .webm and most other audio or video. Very long recordings (2 h+) may be too much for a phone — use a computer for those.</p>
+  <p class="note">Need to dictate live instead? <a href="../bubbyflow/">BubbyFlow</a> does that.</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+const $ = s => document.querySelector(s);
+const LS = localStorage;
+
+/* ---------- settings ---------- */
+const DEFAULTS = {model:'base', lang:'auto', translate:false, clean:true, gpu:false, theme:''};
+let settings = {...DEFAULTS};
+try{ settings = {...DEFAULTS, ...JSON.parse(LS.getItem('bs-settings')||'{}')}; }catch(_){}
+const saveSettings = ()=> LS.setItem('bs-settings', JSON.stringify(settings));
+
+/* ---------- theme ---------- */
+function applyTheme(){
+  const dark = settings.theme ? settings.theme==='dark'
+    : matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
+}
+applyTheme();
+$('#themeBtn').onclick = ()=>{
+  const nowDark = document.documentElement.getAttribute('data-theme')==='dark';
+  settings.theme = nowDark ? 'light' : 'dark';
+  saveSettings(); applyTheme();
+};
+
+/* ---------- toast ---------- */
+let toastT=null;
+function toast(msg){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+/* ---------- small helpers ---------- */
+const SR = 16000;
+const fmtDur = s => { s=Math.floor(s||0); const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), x=s%60;
+  return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0'); };
+const fmtSize = b => b>=1e6 ? (b/1e6).toFixed(1)+' MB' : Math.max(1,Math.round(b/1e3))+' KB';
+const fmtWhen = ts => { const d=new Date(ts), now=new Date(); const t=d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  return d.toDateString()===now.toDateString() ? 'Today '+t : d.toLocaleDateString([],{month:'short',day:'numeric'})+' '+t; };
+const countWords = t => { t=(t||'').trim(); return t? t.split(/\s+/).length : 0; };
+const baseName = n => (n||'recording').replace(/\.[^.]+$/,'');
+const srtTime = s => { s=Math.max(0,s||0); const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), x=Math.floor(s%60), ms=Math.round((s-Math.floor(s))*1000);
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(x).padStart(2,'0')+','+String(ms).padStart(3,'0'); };
+
+/* ---------- text clean-up (same rules as BubbyFlow) ---------- */
+function cleanParagraph(t){
+  t=t.replace(/\s+/g,' ').trim();
+  if(!t) return t;
+  t=t.replace(/(^|[\s,])(?:um+|uh+|erm+|ah+|hmm+|mhm+)(?=[\s,.!?]|$)/gi,'$1');
+  t=t.replace(/,\s*you know,\s*/gi,', ');
+  t=t.replace(/\b([\p{L}']{1,12})(\s+\1\b)+/giu,'$1');
+  t=t.replace(/\s+([,.;:!?])/g,'$1').replace(/([,.;:!?])(?=\p{L})/gu,'$1 ').replace(/\s{2,}/g,' ').trim();
+  t=t.replace(/,\s*([.!?])/g,'$1').replace(/([.!?,]){2,}/g,'$1');
+  t=t.replace(/(^|[.!?]\s+)(\p{Ll})/gu,(m,p,c)=>p+c.toUpperCase());
+  if(settings.lang==='en'||settings.lang==='auto'||settings.translate) t=t.replace(/\bi\b/g,'I');
+  if(/[\p{L}\p{N}]$/u.test(t) && countWords(t)>2) t+='.';
+  return t;
+}
+function cleanText(t){ return t.split(/\n{2,}/).map(cleanParagraph).filter(Boolean).join('\n\n'); }
+
+/* Build readable text from timestamped chunks: a pause > 1.4 s = new paragraph. */
+function assemble(chunks){
+  if(!chunks.length) return '';
+  const paras=[]; let cur=[], lastEnd=null;
+  for(const c of chunks){
+    const txt=(c.text||'').trim(); if(!txt) continue;
+    const [s,e]=c.timestamp||[null,null];
+    const gap = (lastEnd!=null && s!=null) ? s-lastEnd : 0;
+    const curLen = cur.join(' ').length;
+    const sentenceEnd = /[.!?]["')\]]?$/.test(cur[cur.length-1]||'');
+    if(cur.length && (gap>1.4 || (curLen>700 && sentenceEnd))){ paras.push(cur.join(' ')); cur=[]; }
+    cur.push(txt);
+    if(e!=null) lastEnd=e; else if(s!=null) lastEnd=s;
+  }
+  if(cur.length) paras.push(cur.join(' '));
+  return paras.join('\n\n');
+}
+function withTimes(chunks){
+  return chunks.filter(c=>(c.text||'').trim()).map(c=>'['+fmtDur((c.timestamp||[0])[0]||0)+'] '+c.text.trim()).join('\n');
+}
+function toSRT(chunks){
+  let i=0, out='';
+  for(const c of chunks){
+    const txt=(c.text||'').trim(); if(!txt) continue;
+    const s=(c.timestamp||[0])[0]||0; let e=(c.timestamp||[])[1]; if(e==null||e<=s) e=s+Math.max(1.5, txt.length/15);
+    out+=(++i)+'\n'+srtTime(s)+' --> '+srtTime(e)+'\n'+txt+'\n\n';
+  }
+  return out;
+}
+
+/* ---------- audio decode → 16 kHz mono ---------- */
+async function fileToPCM(file){
+  const ab=await file.arrayBuffer();
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC) throw new Error('This browser can\'t decode audio.');
+  let ctx; try{ ctx=new AC({sampleRate:SR}); }catch(_){ ctx=new AC(); }
+  let buf;
+  try{
+    buf=await new Promise((res,rej)=>{
+      try{ const p=ctx.decodeAudioData(ab,res,rej); if(p&&p.then) p.then(res,rej); }catch(e){ rej(e); }
+    });
+  }catch(e){
+    throw new Error('Couldn\'t read that file. Try .m4a, .mp3, .wav, .mp4 or .mov.');
+  }finally{ try{ ctx.close(); }catch(_){} }
+  if(!buf || !buf.length) throw new Error('That file seems to be empty.');
+  if(buf.sampleRate===SR){
+    if(buf.numberOfChannels===1) return buf.getChannelData(0);
+    const n=buf.length, out=new Float32Array(n), ch=buf.numberOfChannels;
+    for(let c=0;c<ch;c++){ const d=buf.getChannelData(c); for(let i=0;i<n;i++) out[i]+=d[i]/ch; }
+    return out;
+  }
+  const off=new OfflineAudioContext(1, Math.max(SR, Math.ceil(buf.duration*SR)), SR);
+  const src=off.createBufferSource(); src.buffer=buf; src.connect(off.destination); src.start();
+  return (await off.startRendering()).getChannelData(0);
+}
+
+/* Split long audio into ~90 s pieces, cutting at the quietest moment near each boundary. */
+function planSegments(pcm){
+  const target=90*SR, win=4*SR, hop=400, n=pcm.length, segs=[];
+  let start=0;
+  while(n-start > target+win){
+    let best=start+target, bestE=Infinity;
+    for(let p=start+target-win; p<start+target+win; p+=hop){
+      let e=0; for(let i=p;i<p+hop;i++){ const v=pcm[i]; e+=v*v; }
+      if(e<bestE){ bestE=e; best=p; }
+    }
+    segs.push([start,best]); start=best;
+  }
+  segs.push([start,n]);
+  return segs;
+}
+
+/* ---------- whisper ---------- */
+const MODEL_IDS={tiny:'onnx-community/whisper-tiny', base:'onnx-community/whisper-base', small:'onnx-community/whisper-small'};
+const MODEL_SIZE={tiny:'40 MB', base:'80 MB', small:'250 MB'};
+let pipePromise=null, pipeKey=null, gpuFailed=false;
+
+function wantGpu(){ return settings.gpu && !!navigator.gpu && !gpuFailed; }
+function modelKey(){ return settings.model+(wantGpu()?'-gpu':''); }
+function modelReady(){
+  return LS.getItem('bs-model-'+modelKey())==='1' || (!wantGpu() && LS.getItem('bf-model-'+settings.model)==='1');
+}
+
+async function getPipeline(onProgress){
+  if(window.__BS_MOCK_ASR){ LS.setItem('bs-model-'+modelKey(),'1'); refreshOfflineCard(); return window.__BS_MOCK_ASR; }
+  const key=modelKey();
+  if(pipePromise && pipeKey===key) return pipePromise;
+  pipeKey=key;
+  pipePromise=(async()=>{
+    const {pipeline, env}=await import('../bubbyflow/vendor/transformers.min.js');
+    env.backends.onnx.wasm.wasmPaths=new URL('../bubbyflow/vendor/', location.href).href;
+    const modelId=MODEL_IDS[settings.model]||MODEL_IDS.base;
+    const files={};
+    const progress_callback=e=>{
+      if(e.status==='progress'&&e.total){
+        files[e.file]=[e.loaded,e.total];
+        const v=Object.values(files);
+        const pct=Math.round(100*v.reduce((a,[l])=>a+l,0)/v.reduce((a,[,t])=>a+t,0));
+        onProgress&&onProgress(pct);
+      }
+    };
+    const build = gpu => pipeline('automatic-speech-recognition', modelId,
+      gpu ? {device:'webgpu', dtype:{encoder_model:'fp32', decoder_model_merged:'q4'}, progress_callback}
+          : {dtype:'q8', progress_callback});
+    let p;
+    if(wantGpu()){
+      try{ p=await build(true); }
+      catch(err){ console.warn('WebGPU failed, using CPU', err); gpuFailed=true; toast('GPU didn\'t work here — using the regular brain'); pipeKey=modelKey(); p=await build(false); }
+    }else p=await build(false);
+    LS.setItem('bs-model-'+modelKey(),'1');
+    refreshOfflineCard();
+    return p;
+  })();
+  pipePromise.catch(()=>{ pipePromise=null; pipeKey=null; });
+  return pipePromise;
+}
+
+/* ---------- jobs ---------- */
+let jobs=[];
+try{ jobs=JSON.parse(LS.getItem('bs-history')||'[]').map(j=>({...j, status:'done', collapsed:true})); }catch(_){}
+const jobsEl=$('#jobs');
+let running=false, wakeLock=null;
+
+function persist(){
+  const keep=jobs.filter(j=>j.status==='done').map(j=>({id:j.id, name:j.name, size:j.size, ts:j.ts, duration:j.duration, text:j.text, chunks:j.chunks||[], lang:j.lang, translate:j.translate}));
+  let list=keep.slice(0,40);
+  for(;;){
+    const s=JSON.stringify(list);
+    if(s.length<3.5e6 || list.length<=1){ try{ LS.setItem('bs-history', s); }catch(_){ if(list.length>1){ list=list.slice(0,Math.ceil(list.length/2)); continue; } } break; }
+    list=list.slice(0,Math.max(1,Math.floor(list.length*0.7)));
+  }
+}
+
+function addFiles(list){
+  const files=[...list].filter(f=>f && f.size>0);
+  if(!files.length){ toast('No usable files there'); return; }
+  for(const f of files){
+    jobs.unshift({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), file:f, name:f.name||'recording', size:f.size, ts:Date.now(),
+      status:'queued', pct:0, note:'', text:'', chunks:[], duration:0, view:'text', collapsed:false});
+  }
+  toast(files.length===1 ? 'Got it — transcribing…' : `Got ${files.length} files — transcribing…`);
+  renderAll(); runQueue();
+}
+
+async function runQueue(){
+  if(running) return; running=true;
+  try{ if(navigator.wakeLock) wakeLock=await navigator.wakeLock.request('screen'); }catch(_){}
+  try{
+    let j; while((j=[...jobs].reverse().find(x=>x.status==='queued'))) await processJob(j);
+  }finally{
+    running=false;
+    try{ wakeLock && wakeLock.release(); }catch(_){} wakeLock=null;
+  }
+}
+
+async function processJob(job){
+  const t0=Date.now();
+  try{
+    job.status='decoding'; job.note='Reading the audio…'; job.pct=0; renderJob(job);
+    const pcm=await fileToPCM(job.file);
+    job.duration=pcm.length/SR;
+    job.status='loading'; job.note=modelReady()?'Waking up the brain…':'Downloading the brain… 0%'; renderJob(job);
+    const asr=await getPipeline(p=>{ if(job.status==='loading'){ job.pct=p; job.note=`Downloading the brain… ${p}%`; renderJob(job); } });
+    job.status='transcribing'; job.pct=0; job.note='Transcribing…'; job.lang=settings.lang; job.translate=settings.translate; renderJob(job);
+    const segs=planSegments(pcm);
+    const opts={chunk_length_s:30, stride_length_s:5, return_timestamps:true};
+    if(settings.lang!=='auto') opts.language=settings.lang;
+    if(settings.translate) opts.task='translate';
+    const t1=Date.now(); let doneSec=0;
+    for(let i=0;i<segs.length;i++){
+      const [a,b]=segs[i];
+      const out=await asr(pcm.slice(a,b), opts);
+      const off=a/SR, segEnd=b/SR;
+      let ch=(out && out.chunks && out.chunks.length) ? out.chunks : [];
+      if(!ch.length && out && (out.text||'').trim()) ch=[{timestamp:[0, segEnd-off], text:out.text}];
+      for(const c of ch){
+        const [s,e]=c.timestamp||[null,null];
+        job.chunks.push({timestamp:[s!=null?+(s+off).toFixed(2):null, e!=null?+(e+off).toFixed(2):null], text:(c.text||'').trim()});
+      }
+      doneSec=segEnd;
+      job.pct=Math.round(100*(i+1)/segs.length);
+      const rate=doneSec/Math.max(0.001,(Date.now()-t1)/1000);
+      const left=(job.duration-doneSec)/Math.max(0.01,rate);
+      job.note=`Transcribing… ${fmtDur(doneSec)} of ${fmtDur(job.duration)}`+(i<segs.length-1 && left>5 ? ` · ~${left<90?Math.ceil(left)+' s':Math.ceil(left/60)+' min'} left` : '');
+      job.text=assemble(job.chunks);
+      renderJob(job);
+    }
+    let text=assemble(job.chunks);
+    if(settings.clean) text=cleanText(text);
+    job.text=text; job.status='done'; job.pct=100;
+    const took=(Date.now()-t0)/1000;
+    job.note = text ? `Done in ${took<60 ? Math.max(1,Math.round(took))+' s' : fmtDur(took)}` : 'Didn\'t hear any words in that one.';
+    delete job.file;
+    renderJob(job, true); persist();
+    toast(text ? `✅ "${baseName(job.name)}" is ready` : 'Finished, but no speech was found');
+  }catch(err){
+    console.error(err);
+    job.status='error';
+    job.error = (navigator.onLine===false && !modelReady()) ? 'The first run needs internet to download the brain — connect once, then it works offline.'
+      : (err && err.message) || 'Something went sideways.';
+    delete job.file;
+    renderJob(job);
+  }
+}
+
+/* ---------- rendering ---------- */
+function renderAll(){
+  jobsEl.innerHTML='';
+  if(!jobs.length){ jobsEl.innerHTML='<div class="empty">Nothing yet — drop a recording above ☝️</div>'; return; }
+  for(const j of jobs) jobsEl.appendChild(buildCard(j));
+}
+function stateChip(j){
+  switch(j.status){
+    case 'queued': return ['Waiting','busy'];
+    case 'decoding': return ['Reading','busy'];
+    case 'loading': return ['Loading brain','busy'];
+    case 'transcribing': return [j.pct+'%','busy'];
+    case 'done': return ['Done','done'];
+    default: return ['Failed','err'];
+  }
+}
+function subLine(j){
+  const bits=[];
+  if(j.status==='done') bits.push(fmtWhen(j.ts));
+  if(j.duration) bits.push(fmtDur(j.duration));
+  else if(j.size) bits.push(fmtSize(j.size));
+  if(j.status==='done' && j.text) bits.push(countWords(j.text).toLocaleString()+' words');
+  return bits.join(' · ');
+}
+function buildCard(j){
+  const card=document.createElement('div');
+  card.className='card job'+(j.collapsed?' collapsed':''); card.id='job-'+j.id;
+  card.innerHTML=`
+    <div class="jhead">
+      <div class="jmeta"><b class="jname"></b><span class="jsub"></span></div>
+      <span class="chip jstate"></span>
+    </div>
+    <div class="jbody">
+      <div class="prog"><b></b></div>
+      <div class="jnote"></div>
+      <div class="viewseg"><button data-v="text">Text</button><button data-v="times">⏱ With times</button></div>
+      <textarea class="jtext" spellcheck="false"></textarea>
+      <div class="actions">
+        <button class="btn sm primary a-copy" type="button">📋 Copy</button>
+        <button class="btn sm a-share" type="button">↗ Share</button>
+        <button class="btn sm a-txt" type="button">.txt</button>
+        <button class="btn sm a-srt" type="button">.srt</button>
+        <span class="spacer"></span>
+        <button class="btn sm ghost a-del" type="button">Delete</button>
+      </div>
+      <div class="jerr"></div>
+    </div>`;
+  const q=s=>card.querySelector(s);
+  q('.jhead').onclick=()=>{ if(j.status==='done'||j.status==='error'){ j.collapsed=!j.collapsed; card.classList.toggle('collapsed', j.collapsed); } };
+  q('.viewseg').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; j.view=b.dataset.v; updateCard(card,j,true); };
+  const ta=q('.jtext');
+  ta.addEventListener('input',()=>{ if(j.status==='done' && j.view==='text'){ j.text=ta.value; q('.jsub').textContent=subLine(j); persistSoon(); } });
+  q('.a-copy').onclick=()=>copyText(currentText(j));
+  q('.a-share').onclick=()=>shareText(j);
+  q('.a-txt').onclick=()=>download(baseName(j.name)+'.txt', j.text, 'text/plain');
+  q('.a-srt').onclick=()=>download(baseName(j.name)+'.srt', toSRT(j.chunks||[]), 'application/x-subrip');
+  q('.a-del').onclick=()=>{ if(j.status!=='done' && j.status!=='error' && !confirm('Stop and remove this one?')) return; jobs=jobs.filter(x=>x!==j); j.status='removed'; persist(); renderAll(); };
+  if(!navigator.share) q('.a-share').style.display='none';
+  updateCard(card,j,true);
+  return card;
+}
+function currentText(j){ return j.view==='times' ? withTimes(j.chunks||[]) : (j.text||''); }
+function updateCard(card,j,force){
+  const q=s=>card.querySelector(s);
+  q('.jname').textContent=j.name; q('.jname').title=j.name;
+  q('.jsub').textContent=subLine(j);
+  const [lab,cls]=stateChip(j); const chip=q('.jstate'); chip.textContent=lab; chip.className='chip jstate '+cls;
+  const busy=!['done','error'].includes(j.status);
+  const prog=q('.prog'); prog.classList.toggle('show', busy && (j.status==='transcribing'||j.status==='loading')); prog.firstElementChild.style.width=(j.pct||0)+'%';
+  q('.jnote').textContent=j.note||'';
+  q('.jerr').textContent=j.status==='error' ? '⚠️ '+j.error : '';
+  const hasText=!!(j.text||'').trim() || (j.chunks||[]).length>0;
+  const ta=q('.jtext');
+  ta.style.display = hasText ? '' : 'none';
+  ta.readOnly = busy || j.view==='times';
+  ta.classList.toggle('live', busy);
+  if(busy || force || j.view==='times'){ const v=currentText(j); if(ta.value!==v) ta.value=v; }
+  q('.viewseg').style.display = (j.status==='done' && (j.chunks||[]).length) ? '' : 'none';
+  q('.viewseg').querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.v===(j.view||'text')));
+  q('.actions').style.display = (j.status==='done' && hasText) || j.status==='error' || j.status==='queued' ? '' : (j.status==='done' ? '' : 'none');
+  ['.a-copy','.a-share','.a-txt','.a-srt'].forEach(s=>q(s).style.display = (j.status==='done' && hasText) ? '' : 'none');
+  if(!navigator.share) q('.a-share').style.display='none';
+}
+function renderJob(j, force){
+  const card=document.getElementById('job-'+j.id);
+  if(!card){ renderAll(); return; }
+  updateCard(card,j,!!force);
+}
+let persistT=null;
+function persistSoon(){ clearTimeout(persistT); persistT=setTimeout(persist,400); }
+
+/* ---------- export ---------- */
+async function copyText(txt){
+  if(!txt) return;
+  try{ await navigator.clipboard.writeText(txt); toast('Copied — paste it anywhere 📋'); }
+  catch(_){ toast('Couldn\'t copy — select the text and copy it'); }
+}
+async function shareText(j){
+  const txt=currentText(j); if(!txt) return;
+  try{
+    const f=new File([txt],baseName(j.name)+'.txt',{type:'text/plain'});
+    if(navigator.canShare && navigator.canShare({files:[f]})) await navigator.share({files:[f], title:baseName(j.name)});
+    else await navigator.share({text:txt, title:baseName(j.name)});
+  }catch(_){}
+}
+function download(name, content, type){
+  if(!content){ toast('Nothing to save yet'); return; }
+  const blob=new Blob([content],{type});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+
+/* ---------- inputs: picker, drag & drop, share target, file handlers ---------- */
+const fileInput=$('#fileInput');
+$('#pickBtn').onclick=e=>{ e.stopPropagation(); fileInput.click(); };
+$('#drop').onclick=()=>fileInput.click();
+fileInput.onchange=()=>{ addFiles(fileInput.files); fileInput.value=''; };
+let dragDepth=0;
+document.addEventListener('dragenter',e=>{ e.preventDefault(); dragDepth++; $('#drop').classList.add('over'); });
+document.addEventListener('dragover',e=>{ e.preventDefault(); });
+document.addEventListener('dragleave',e=>{ if(--dragDepth<=0){ dragDepth=0; $('#drop').classList.remove('over'); } });
+document.addEventListener('drop',e=>{ e.preventDefault(); dragDepth=0; $('#drop').classList.remove('over'); if(e.dataTransfer&&e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+
+async function pullSharedFiles(){
+  if(!('caches' in window)) return;
+  try{
+    const cache=await caches.open('bubbyscribe-shared');
+    const keys=await cache.keys();
+    if(!keys.length) return;
+    const files=[];
+    for(const req of keys){
+      const res=await cache.match(req);
+      if(res){ const blob=await res.blob(); const name=decodeURIComponent(res.headers.get('x-file-name')||'shared-recording'); files.push(new File([blob],name,{type:res.headers.get('content-type')||blob.type})); }
+      await cache.delete(req);
+    }
+    if(files.length) addFiles(files);
+  }catch(e){ console.warn(e); }
+}
+if(location.search.indexOf('shared=1')>-1){ history.replaceState(null,'',location.pathname); }
+pullSharedFiles();
+if('launchQueue' in window && window.launchQueue.setConsumer){
+  window.launchQueue.setConsumer(async p=>{
+    if(!p.files||!p.files.length) return;
+    const fs=[]; for(const h of p.files){ try{ fs.push(await h.getFile()); }catch(_){} }
+    if(fs.length) addFiles(fs);
+  });
+}
+
+/* ---------- offline card / settings UI ---------- */
+function refreshOfflineCard(){
+  $('#offlineCard').style.display = modelReady() ? 'none' : '';
+  $('#modelSize').textContent = MODEL_SIZE[settings.model]||MODEL_SIZE.base;
+  $('#enginePill').textContent = '🧠 Whisper · '+({tiny:'Quick',base:'Sharp',small:'Best'}[settings.model]||'Sharp')+(wantGpu()?' · GPU':'');
+}
+$('#downloadBtn').onclick=async()=>{
+  const btn=$('#downloadBtn'), prog=$('#prog'), bar=$('#progBar');
+  btn.disabled=true; btn.textContent='Downloading… 0%'; prog.classList.add('show');
+  try{
+    await getPipeline(p=>{ btn.textContent=`Downloading… ${p}%`; bar.style.width=p+'%'; });
+    toast('Brain downloaded — you\'re all set 🧠');
+  }catch(err){ console.error(err); toast(navigator.onLine===false ? 'Connect to the internet for this one-time download' : '⚠️ '+(err.message||'Download failed')); }
+  btn.disabled=false; btn.textContent='Download the brain'; prog.classList.remove('show'); bar.style.width='0';
+  refreshOfflineCard();
+};
+
+const overlay=$('#overlay');
+function openSheet(id){ $(id).classList.add('show'); overlay.classList.add('show'); }
+function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('show')); overlay.classList.remove('show'); }
+overlay.onclick=closeSheets;
+$('#settingsBtn').onclick=()=>{ syncSettingsUI(); openSheet('#settingsSheet'); };
+$('#helpBtn').onclick=()=>openSheet('#helpSheet');
+
+function segSync(seg,v){ seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.v===v)); }
+function syncSettingsUI(){
+  segSync($('#modelSeg'), settings.model);
+  $('#langSel').value=settings.lang;
+  $('#translateTog').checked=settings.translate;
+  $('#cleanTog').checked=settings.clean;
+  $('#gpuTog').checked=settings.gpu;
+  const gpuRow=$('#gpuTog').closest('.setrow');
+  gpuRow.style.display = navigator.gpu ? '' : 'none';
+  refreshOfflineCard();
+}
+$('#modelSeg').onclick=e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  settings.model=b.dataset.v; pipePromise=null; pipeKey=null; saveSettings(); syncSettingsUI();
+};
+$('#langSel').onchange=e=>{ settings.lang=e.target.value; saveSettings(); };
+$('#translateTog').onchange=e=>{ settings.translate=e.target.checked; saveSettings(); };
+$('#cleanTog').onchange=e=>{ settings.clean=e.target.checked; saveSettings(); };
+$('#gpuTog').onchange=e=>{ settings.gpu=e.target.checked; gpuFailed=false; pipePromise=null; pipeKey=null; saveSettings(); syncSettingsUI(); };
+$('#clearHistBtn').onclick=()=>{
+  if(!confirm('Remove all saved transcripts from this device?')) return;
+  jobs=jobs.filter(j=>j.status!=='done'); persist(); renderAll(); closeSheets(); toast('History cleared');
+};
+
+syncSettingsUI();
+renderAll();
+
+/* ---------- service worker ---------- */
+if('serviceWorker' in navigator && location.protocol!=='file:'){
+  addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
